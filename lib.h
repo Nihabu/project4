@@ -6,7 +6,6 @@
 
  // Standard ANSI-C++ include files
 
-
 #include <iostream>
 #include <new>
 #include <cstdio>
