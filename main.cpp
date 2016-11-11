@@ -108,15 +108,15 @@ void runMC(int **spin_matrix, int L, int NCycles, double &ESum, double &ESquared
 
 }
 
-void output(double temperature, double NCycles, double cv, double chi, double ESum, double MSum) {
+void output(double temperature, double NCycles, double cv, double chi, double meanEnergy, double meanM) {
     //write interesting values to file
     ofile << setiosflags(ios::showpoint | ios::uppercase);
-    ofile << setw(6) << setprecision(2) << temperature;
+    ofile << setw(6) << setprecision(3) << temperature;
     ofile << setw(15) << setprecision(8) << NCycles;
     ofile << setw(15) << setprecision(8) << cv;
     ofile << setw(15) << setprecision(8) << chi;
-    ofile << setw(15) << setprecision(8) << ESum;
-    ofile << setw(15) << setprecision(8) << MSum;
+    ofile << setw(15) << setprecision(8) << meanEnergy;
+    ofile << setw(15) << setprecision(8) << meanM;
     ofile << "\n";
 }
 
@@ -134,7 +134,7 @@ int main() {
     ofile << setw(15) << setprecision(8) << "MSum";
     ofile << "\n";
 
-    for (double temperature = minTemperature; temperature <= finalTemperature; temperature += T_step){
+    for (double temperature = minTemperature; temperature <= finalTemperature+T_step; temperature += T_step){
         double beta = 1/temperature;
         int L = 2;
         int seed = -1;
@@ -155,14 +155,12 @@ int main() {
         runMC(spin_matrix, L, 1e4, meanEnergy, meanEnergySquared, meanM, meanMSquared, beta);
 
         // Start sampling for reals
-        runMC(spin_matrix, L, 1e5, meanEnergy, meanEnergySquared, meanM, meanMSquared, beta);
+        runMC(spin_matrix, L, 1e6, meanEnergy, meanEnergySquared, meanM, meanMSquared, beta);
 
         double cv = (beta/temperature) * (meanEnergySquared - meanEnergy*meanEnergy) / (L*L);
         double chi = beta * (meanMSquared - meanM*meanM);
 
         output(temperature, NCycles, cv, chi, meanEnergy, meanM);
-
-        cout << temperature << endl;
     }
     return 0;
 }
