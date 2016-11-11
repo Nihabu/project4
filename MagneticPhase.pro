@@ -7,3 +7,8 @@ SOURCES += main.cpp
 
 HEADERS += \
     lib.h
+
+INCLUDEPATH += /usr/local/include
+LIBS += -L/usr/local/lib
+
+LIBS += -larmadillo -llapack -lblas
