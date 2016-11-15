@@ -5,8 +5,7 @@ CONFIG -= qt
 
 SOURCES += main.cpp
 
-HEADERS += \
-    lib.h
+HEADERS +=
 
 INCLUDEPATH += /usr/local/include
 LIBS += -L/usr/local/lib
