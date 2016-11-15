@@ -19,19 +19,20 @@ int** setup_matrix(int L) {
     }
     for (int i = 0; i < L+2; i++){
         for (int j = 0; j < L+2; j++){
-            mat[j][i] = 1; //set every element = 1
+            //mat[j][i] = 1; //set every element = 1
             //following lines sets up a random matrix
-            /*
+
             double rand_int = rand()/(double)RAND_MAX;
             if (rand_int <= 0.5){ mat[j][i] = -1; }
             else { mat[j][i] = 1; }
-            */
+
         }
     } //end for-loops
     return mat;
 }
 
-void metropolis(double &E, double &M, int** spin_matrix, int L, vec exponentials) {
+void metropolis(double &E, double &M, int** spin_matrix, int L, vec exponentials, double &totAccepted) {
+    totAccepted = 0;
     //find random element
     for (int x = 1; x < L+1; x++){
         for (int y = 1; y < L+1; y++){
@@ -40,20 +41,23 @@ void metropolis(double &E, double &M, int** spin_matrix, int L, vec exponentials
             //calculate change in energy
             int deltaE = (2*spin_matrix[inity][initx])*(spin_matrix[inity-1][initx] + spin_matrix[inity+1][initx] +
                                                         spin_matrix[inity][initx-1] + spin_matrix[inity][initx+1]);
+
             bool accepted = false;
             /*if energy is higher than last state, decide if new state is accepted
             through probability. The probability for acceptance decreases as the change
             in energy increases.*/
             if (deltaE > 0){
-                double w = exponentials[deltaE];
+                double w = exponentials(deltaE+8);
                 double r = rand() / (double)RAND_MAX;
                 if (r < w){
                     accepted = true;
                 }
-            } else {
+            } else {                
                 accepted = true;
+
             }
             if(accepted) {
+                totAccepted += 1;
                 spin_matrix[inity][initx] *= -1;
                 //cout << "x: " << initx << "   y: " << inity << endl;
                 E += deltaE;
@@ -63,12 +67,6 @@ void metropolis(double &E, double &M, int** spin_matrix, int L, vec exponentials
                 if (int initx = L){spin_matrix[inity][0] = spin_matrix[inity][initx]; }
                 if (int inity = 1){spin_matrix[L+1][initx] = spin_matrix[inity][initx]; }
                 if (int inity = L){spin_matrix[0][initx] = spin_matrix[inity][initx]; }
-                /*
-                cout << "XX" << "  " << spin_matrix[1][0] << "  " << spin_matrix[2][0] << "  " << "XX" << endl;
-                cout << spin_matrix[0][1] << "  " << spin_matrix[1][1] << "  " << spin_matrix[2][1] << "  " << spin_matrix[3][1] << endl;
-                cout << spin_matrix[0][2] << "  " << spin_matrix[1][2] << "  " << spin_matrix[2][2] << "  " << spin_matrix[3][2] << endl;
-                cout << "XX" << "  " << spin_matrix[1][3] << "  " << spin_matrix[2][3] << "  " << "XX" << endl;
-                */
             }
         }
     }
@@ -85,6 +83,7 @@ int calculateEnergy(int **spin_matrix, int L) {
 }
 
 int calculateMagnetization(int **spin_matrix, int L) {
+
     int M = 0;
     for (int i = 1; i < L+1; i++){
         for (int j = 1; j < L+1; j++){
@@ -94,7 +93,21 @@ int calculateMagnetization(int **spin_matrix, int L) {
     return M;
 }
 
-void runMC(int **spin_matrix, int L, int NCycles, double &ESum, double &ESquaredSum, double &MSum, double &MSquaredSum, double &MAbs, vec &exponentials) {
+void output(double temperature, double NCycles, double cv, double chi, double meanEnergy, double meanMAbs, double totAccepted, double meanESquared) {
+    //write interesting values to file
+    ofile << setiosflags(ios::showpoint | ios::uppercase);
+    ofile << setw(6) << setprecision(3) << NCycles;
+    ofile << setw(15) << setprecision(8) << temperature;
+    ofile << setw(15) << setprecision(8) << cv;
+    ofile << setw(15) << setprecision(8) << chi;
+    ofile << setw(15) << setprecision(8) << meanEnergy;
+    ofile << setw(15) << setprecision(8) << meanMAbs;
+    ofile << setw(15) << setprecision(8) << totAccepted;
+    ofile << setw(15) << setprecision(8) << meanESquared;
+    ofile << "\n";
+}
+
+void runMC(int **spin_matrix, int L, int NCycles, double &ESum, double &ESquaredSum, double &MSum, double &MSquaredSum, double &MAbs, vec &exponentials, double temperature, double totAccepted) {
     double E = calculateEnergy(spin_matrix, L);
     double M = calculateMagnetization(spin_matrix, L);
     ESum = 0;
@@ -104,12 +117,13 @@ void runMC(int **spin_matrix, int L, int NCycles, double &ESum, double &ESquared
     MAbs = 0;
 
     for (double cycle = 1; cycle <= NCycles; cycle++){
-        metropolis(E, M, spin_matrix, L, exponentials);
+        metropolis(E, M, spin_matrix, L, exponentials, totAccepted);
         ESum += E;
         ESquaredSum += E*E;
         MSum += M;
         MSquaredSum += M*M;
         MAbs += fabs(M);
+
     }
     ESum /= NCycles;
     ESquaredSum /= NCycles;
@@ -118,39 +132,18 @@ void runMC(int **spin_matrix, int L, int NCycles, double &ESum, double &ESquared
     MAbs /= NCycles;
 }
 
-void output(double temperature, double NCycles, double cv, double chi, double meanEnergy, double meanMAbs) {
-    //write interesting values to file
-    ofile << setiosflags(ios::showpoint | ios::uppercase);
-    ofile << setw(6) << setprecision(3) << temperature;
-    ofile << setw(15) << setprecision(8) << NCycles;
-    ofile << setw(15) << setprecision(8) << cv;
-    ofile << setw(15) << setprecision(8) << chi;
-    ofile << setw(15) << setprecision(8) << meanEnergy;
-    ofile << setw(15) << setprecision(8) << meanMAbs;
-    ofile << "\n";
-}
-
 int main() {
-    double minTemperature = 1.5;
-    double finalTemperature = 2.8;
-    double T_step = 0.1;
-    //double temperature = 1.0;
+    double minTemperature = 2.2;
+    double finalTemperature = 2.3;
+    double T_step = 0.01;
+    //double temperature = 2.4;
 
-    /*
-    ofile.open("testings");
-    ofile << setw(6) << setprecision(8) << "temp";
-    ofile << setw(15) << setprecision(8) << "NCycles";
-    ofile << setw(10) << setprecision(8) << "cv";
-    ofile << setw(15) << setprecision(8) << "chi";
-    ofile << setw(15) << setprecision(8) << "meanESum";
-    ofile << setw(15) << setprecision(8) << "meanMAbs";
-    ofile << "\n";
-    */
+    ofile.open("filename");
 
     for (double temperature = minTemperature; temperature <= finalTemperature+T_step; temperature += T_step){
         cout << temperature << endl;
-        double beta = 1/temperature;
-        int L = 20;
+        double beta = 1.0/temperature;
+        int L = 40;
         //int seed = -2;
         //initialize random seed
         srand(time(NULL));
@@ -172,18 +165,21 @@ int main() {
         double meanM = 0;
         double meanMSquared = 0;
         double meanMAbs = 0;
+        double totAccepted = 0;
+        double NCycles = 1e6;
 
         // Thermalize (reach equilibrium)
-        runMC(spin_matrix, L, 1e6, meanEnergy, meanEnergySquared, meanM, meanMSquared, meanMAbs, exponentials);
+        runMC(spin_matrix, L, 10000, meanEnergy, meanEnergySquared, meanM, meanMSquared, meanMAbs, exponentials, temperature, totAccepted);
 
         // Start sampling for reals
-        runMC(spin_matrix, L, 1e6, meanEnergy, meanEnergySquared, meanM, meanMSquared, meanMAbs, exponentials);
+        runMC(spin_matrix, L, NCycles, meanEnergy, meanEnergySquared, meanM, meanMSquared, meanMAbs, exponentials, temperature, totAccepted);
 
         double cv = (beta/temperature) * (meanEnergySquared - meanEnergy*meanEnergy) / (L*L);
-        double chi = beta * (meanMSquared - meanMAbs*meanMAbs) / (L*L);
-        cout << "cv: " << cv << endl;
-        cout << "chi: " << chi << endl;
-        //output(temperature, NCycles, cv, chi, meanEnergy, meanMAbs);
+        double chi = beta  * (meanMSquared - meanMAbs*meanMAbs) / (L*L);
+        double EperSpin = meanEnergy/(L*L);
+        double MperSpin = meanMAbs/(L*L);
+
+        output(temperature, NCycles, cv, chi, EperSpin, MperSpin, totAccepted, meanEnergySquared);
     }
     return 0;
 }
